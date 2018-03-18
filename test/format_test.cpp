@@ -21,7 +21,7 @@ constexpr bool is_valid_format() {
   return valid<T, Rs...>(bool{});
 }
 
-TEST(Formatter, simple) {
+TEST(Formatter, Simple) {
   constexpr auto f = "hello, {1}! I am {0}."_f;
   EXPECT_EQ("hello, world! I am gentoo.", f.format("gentoo", "world"));
   EXPECT_EQ("hello hello", "{0} {0}"_f.format("hello"));
@@ -30,5 +30,6 @@ TEST(Formatter, simple) {
 TEST(Formatter, Sfinae) {
   EXPECT_TRUE(
       (is_valid_format<decltype("{} {}"_f), const char *, const char *>()));
+  EXPECT_TRUE((is_valid_format<decltype("{0} {0}"_f), const char *>()));
   EXPECT_FALSE((is_valid_format<decltype("{} {}"_f), const char *>()));
 }

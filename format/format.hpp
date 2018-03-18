@@ -7,6 +7,7 @@
 #include <utility>
 
 namespace wijagels {
+namespace detail {
 template <std::size_t I, std::size_t B, std::size_t E>
 struct idx_set {
   static constexpr std::size_t arg = I;
@@ -32,30 +33,34 @@ class format_string {
  public:
   constexpr format_string(std::array<char, Size> arr) : m_arr{std::move(arr)} {}
 
-  template <typename... Ts,
-            typename = std::enable_if_t<is_valid(
-                sizeof...(Ts),
-                std::make_index_sequence<std::tuple_size_v<Indexes>>{})>>
+  template <typename... Ts, std::size_t TupSz = std::tuple_size_v<Indexes>,
+            typename = std::enable_if_t<
+                is_valid(sizeof...(Ts), std::make_index_sequence<TupSz>{})>>
   auto format(Ts &&... ts) const {
     std::ostringstream os{};
-    auto ptr = this->m_arr.data();
-    constexpr auto TupSz = std::tuple_size_v<Indexes>;
-    format_impl(os, ptr, std::forward_as_tuple(ts...),
+    format_impl(os, std::forward_as_tuple(ts...),
                 std::make_index_sequence<TupSz>{});
     return os.str();
   }
 
+  template <typename... Ts, std::size_t TupSz = std::tuple_size_v<Indexes>,
+            typename = std::enable_if_t<
+                is_valid(sizeof...(Ts), std::make_index_sequence<TupSz>{})>>
+  void format(std::ostream &os, Ts &&... ts) const {
+    format_impl(os, std::forward_as_tuple(ts...),
+                std::make_index_sequence<TupSz>{});
+  }
+
  private:
   template <typename Tuple, std::size_t... Is>
-  constexpr void format_impl(std::ostringstream &os, const char *pos,
-                             const Tuple &tup,
+  constexpr void format_impl(std::ostream &os, const Tuple &tup,
                              std::index_sequence<Is...>) const {
-    ((os << std::string_view{pos + lastelem<Is>(),
+    ((os << std::string_view{&m_arr[lastelem<Is>()],
                              std::tuple_element<Is, Indexes>::type::begin -
                                  lastelem<Is>()}
          << std::get<std::tuple_element<Is, Indexes>::type::arg>(tup)),
      ...);
-    os << std::string_view{pos + lastelem<sizeof...(Is)>(),
+    os << std::string_view{&m_arr[lastelem<sizeof...(Is)>()],
                            Size - lastelem<sizeof...(Is)>()};
   }
 
@@ -107,11 +112,12 @@ template <char... S>
 constexpr auto parse_format() {
   return parse_format_impl<parser_state<>, S...>();
 }
+}  // namespace detail
 
 template <typename Char, Char... S>
 constexpr auto operator""_f() {
-  auto idxs = parse_format<S...>();
-  return format_string<sizeof...(S), decltype(idxs)>{{{S...}}};
+  auto idxs = detail::parse_format<S...>();
+  return detail::format_string<sizeof...(S), decltype(idxs)>{{{S...}}};
 }
 
 }  // namespace wijagels
